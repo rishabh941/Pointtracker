@@ -1,4 +1,5 @@
 import User from "../models/users.model.js";
+import { format, isValid } from "date-fns"; // For date formatting and validation
 import ClaimHistory from "../models/claimsHistory.model.js";
 export const getAllUser = async (req, res) => {
   try {
@@ -181,6 +182,55 @@ export const getMonthlyData = async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching monthly data:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error.",
+      error: error.message,
+    });
+  }
+};
+
+
+
+export const getUserHistory = async (req, res) => {
+  try {
+    const { username } = req.body;
+
+    // Find the user by username
+    const user = await User.findOne({ username });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Find the user's claim history by username
+    const history = await ClaimHistory.find({ username });
+
+    // Return only pointsAwarded and formatted createdAt
+    const formattedHistory = history.map((entry) => {
+      // Check if entry.createdAt is valid
+      const createdAt =
+        entry.createdAt && isValid(new Date(entry.createdAt))
+          ? format(new Date(entry.createdAt), "dd MMM yyyy") // Format the timestamp
+          : "Invalid date"; // Fallback in case of an invalid timestamp
+
+      return {
+        pointsAwarded: entry.pointsAwarded,
+        date: createdAt, // Use the formatted createdAt timestamp
+      };
+    });
+
+    // Respond with the formatted history
+    res.status(200).json({
+      success: true,
+      message: "User history fetched successfully.",
+      data: formattedHistory,
+    });
+  } catch (error) {
+    console.error("Error fetching user history:", error);
     res.status(500).json({
       success: false,
       message: "Server error.",
