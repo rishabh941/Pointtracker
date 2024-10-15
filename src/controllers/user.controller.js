@@ -124,6 +124,9 @@ export const getWeeklyData = async (req, res) => {
       },
     ]);
 
+    // Sort the weeklyData in descending order by totalPoints
+    weeklyData.sort((a, b) => b.totalPoints - a.totalPoints);
+
     res.status(200).json({
       success: true,
       message: "Weekly data fetched successfully.",
@@ -175,6 +178,9 @@ export const getMonthlyData = async (req, res) => {
       },
     ]);
 
+    // Sort the monthlyData in descending order by totalPointsAwarded
+    monthlyData.sort((a, b) => b.totalPointsAwarded - a.totalPointsAwarded);
+
     res.status(200).json({
       success: true,
       message: "Monthly data fetched successfully.",
@@ -189,8 +195,6 @@ export const getMonthlyData = async (req, res) => {
     });
   }
 };
-
-
 
 export const getUserHistory = async (req, res) => {
   try {
