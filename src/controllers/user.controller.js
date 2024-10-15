@@ -39,6 +39,7 @@ export const claimPoints = async (req, res) => {
     await ClaimHistory.create({
       userId: user._id,
       pointsAwarded,
+      username,
     });
 
     res.status(200).json({
@@ -57,7 +58,7 @@ export const claimPoints = async (req, res) => {
 };
 
 export const giveHistoryOfAUser = async (req, res) => {
-  const { username, page = 1, limit = 10 } = req.body; // Default page to 1 and limit to 10
+  const { username } = req.body;
 
   try {
     if (!username) {
@@ -75,28 +76,51 @@ export const giveHistoryOfAUser = async (req, res) => {
       });
     }
 
-    const claimHistory = await ClaimHistory.find({ userId: user._id })
-      .skip((page - 1) * limit)
-      .limit(limit);
+    // Get today's date at 12:00 AM (IST)
+    const now = new Date();
+    const istTimeOffset = 330; // IST is UTC+5:30
+    const istNow = new Date(now.getTime() + istTimeOffset * 60 * 1000); // Convert to IST
+    const todayMidnight = new Date(
+      istNow.getFullYear(),
+      istNow.getMonth(),
+      istNow.getDate(),
+      0,
+      0,
+      0
+    );
+    const utcMidnight = new Date(
+      todayMidnight.getTime() - istTimeOffset * 60 * 1000
+    ); // Convert back to UTC
 
-    const totalCount = await ClaimHistory.countDocuments({ userId: user._id });
+    // Aggregate the sum of points added after today's 12:00 AM (IST)
+    const result = await ClaimHistory.aggregate([
+      {
+        $match: {
+          username,
+          createdAt: { $gte: utcMidnight },
+        },
+      },
+      {
+        $group: {
+          _id: null, // No grouping key, just aggregate across all matched documents
+          totalPoints: { $sum: "$points" }, // Assuming "points" is the field containing points
+        },
+      },
+    ]);
 
-    if (claimHistory.length === 0) {
+    if (!result || result.length === 0 || !result[0].totalPoints) {
       return res.status(404).json({
         success: false,
-        message: "No claim history found for this user.",
+        message: "No points added today after 12:00 AM (IST).",
       });
     }
 
     res.status(200).json({
       success: true,
-      message: "Claim history fetched successfully.",
-      data: claimHistory,
-      pagination: {
-        totalItems: totalCount,
-        totalPages: Math.ceil(totalCount / limit),
-        currentPage: page,
-        itemsPerPage: limit,
+      message: "Total points added today fetched successfully.",
+      data: user,
+      historyOfPoints: {
+        totalPoints: result[0].totalPoints, // Return the sum of points
       },
     });
   } catch (error) {
